@@ -90,7 +90,7 @@ st.markdown("""
 # =========================================
 if not os.path.exists("saved_model"):
 
-    with zipfile.ZipFile("saved_model.zip", 'r') as zip_ref:
+    with zipfile.ZipFile("saved_model.zip", "r") as zip_ref:
         zip_ref.extractall("saved_model")
 
 # =========================================
@@ -108,7 +108,7 @@ model = load_model()
 # =========================================
 # LABEL KELAS
 # =========================================
-class_names = ['Cabai', 'Terong', 'Tomat']
+class_names = ["Cabai", "Terong", "Tomat"]
 
 # =========================================
 # HEADER
@@ -195,41 +195,41 @@ if image is not None:
         use_container_width=True
     )
 
+    # preprocess
     img = preprocess_image(image)
 
+    # inferensi model
     infer = model.signatures["serving_default"]
 
     prediction = infer(tf.constant(img))
 
     prediction = list(prediction.values())[0].numpy()
 
-    index = np.argmax(prediction)
+    # =========================================
+    # AMBIL SCORE
+    # =========================================
+    scores = prediction[0]
 
-    confidence = prediction[0][index] * 100
+    index = np.argmax(scores)
 
-   # =========================================
-# VALIDASI PREDIKSI
-# =========================================
+    max_score = np.max(scores) * 100
 
-scores = prediction[0]
+    sorted_scores = np.sort(scores)
 
-max_score = np.max(scores) * 100
+    difference = (sorted_scores[-1] - sorted_scores[-2]) * 100
 
-sorted_scores = np.sort(scores)
+    confidence = max_score
 
-difference = (sorted_scores[-1] - sorted_scores[-2]) * 100
+    # =========================================
+    # VALIDASI PREDIKSI
+    # =========================================
+    if max_score < 95 or difference < 20:
 
-# RULE:
-# kalau confidence rendah ATAU
-# selisih antar kelas kecil
-# maka tidak dikenali
+        label = "Tidak Dikenali"
 
-if max_score < 95 or difference < 20:
-    label = "Tidak Dikenali"
-else:
-    label = class_names[index]
+    else:
 
-confidence = max_score
+        label = class_names[index]
 
     # =========================================
     # HASIL PREDIKSI
@@ -281,7 +281,7 @@ confidence = max_score
 
     for i, class_name in enumerate(class_names):
 
-        score = float(prediction[0][i]) * 100
+        score = float(scores[i]) * 100
 
         st.write(f"{class_name} : {score:.2f}%")
 
@@ -324,7 +324,9 @@ if len(st.session_state.history) > 0:
     """, unsafe_allow_html=True)
 
     for item in reversed(st.session_state.history):
+
         st.write("✅", item)
 
 else:
+
     st.warning("⚠️ Silakan upload gambar atau gunakan kamera.")
