@@ -210,7 +210,7 @@ if image is not None:
     # =========================================
     # THRESHOLD CONFIDENCE
     # =========================================
-    THRESHOLD = 70
+    THRESHOLD = 95
 
     if confidence < THRESHOLD:
         label = "Tidak Dikenali"
