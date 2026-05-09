@@ -56,6 +56,15 @@ st.markdown("""
     box-shadow: 0px 4px 15px rgba(0,0,0,0.1);
 }
 
+.unknown-box {
+    background: linear-gradient(135deg, #ffdde1, #ee9ca7);
+    padding: 25px;
+    border-radius: 20px;
+    text-align: center;
+    margin-top: 20px;
+    box-shadow: 0px 4px 15px rgba(0,0,0,0.1);
+}
+
 .result-label {
     font-size: 35px;
     font-weight: bold;
@@ -196,30 +205,60 @@ if image is not None:
 
     index = np.argmax(prediction)
 
-    label = class_names[index]
-
     confidence = prediction[0][index] * 100
 
     # =========================================
-    # HASIL
+    # THRESHOLD CONFIDENCE
     # =========================================
-    st.markdown(f"""
-    <div class="result-box">
+    THRESHOLD = 70
 
-    <h2>Hasil Prediksi</h2>
+    if confidence < THRESHOLD:
+        label = "Tidak Dikenali"
+    else:
+        label = class_names[index]
 
-    <div class="result-label">
-    {label}
-    </div>
+    # =========================================
+    # HASIL PREDIKSI
+    # =========================================
+    if label == "Tidak Dikenali":
 
-    <br>
+        st.markdown(f"""
+        <div class="unknown-box">
 
-    <div class="result-confidence">
-    Tingkat Keyakinan: {confidence:.2f}%
-    </div>
+        <h2>⚠️ Objek Tidak Dikenali</h2>
 
-    </div>
-    """, unsafe_allow_html=True)
+        <div class="result-label">
+        {label}
+        </div>
+
+        <br>
+
+        <div class="result-confidence">
+        Confidence tertinggi hanya {confidence:.2f}%
+        </div>
+
+        </div>
+        """, unsafe_allow_html=True)
+
+    else:
+
+        st.markdown(f"""
+        <div class="result-box">
+
+        <h2>Hasil Prediksi</h2>
+
+        <div class="result-label">
+        {label}
+        </div>
+
+        <br>
+
+        <div class="result-confidence">
+        Tingkat Keyakinan: {confidence:.2f}%
+        </div>
+
+        </div>
+        """, unsafe_allow_html=True)
 
     # =========================================
     # GRAFIK CONFIDENCE
