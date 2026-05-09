@@ -1,8 +1,9 @@
 import streamlit as st
 import tensorflow as tf
-from tensorflow.keras.models import model_from_json
 from PIL import Image, ImageOps
 import numpy as np
+import zipfile
+import os
 
 # =========================================
 # CONFIG
@@ -13,26 +14,27 @@ st.set_page_config(
 )
 
 # =========================================
+# EXTRACT MODEL
+# =========================================
+if not os.path.exists("saved_model"):
+
+    with zipfile.ZipFile("saved_model.zip", 'r') as zip_ref:
+        zip_ref.extractall("saved_model")
+
+# =========================================
 # LOAD MODEL
 # =========================================
 @st.cache_resource
 def load_model():
 
-    # Load architecture
-    with open("model.json", "r") as json_file:
-        loaded_model_json = json_file.read()
-
-    model = model_from_json(loaded_model_json)
-
-    # Load weights
-    model.load_weights("model.weights.h5")
+    model = tf.saved_model.load("saved_model")
 
     return model
 
 model = load_model()
 
 # =========================================
-# LABEL KELAS
+# LABEL
 # =========================================
 class_names = ['Cabai', 'Terong', 'Tomat']
 
@@ -46,17 +48,17 @@ st.write(
 )
 
 # =========================================
-# UPLOAD GAMBAR
+# UPLOAD
 # =========================================
 uploaded_file = st.file_uploader(
-    "Pilih gambar",
+    "Upload gambar",
     type=["jpg", "jpeg", "png"]
 )
 
 # =========================================
-# PREDIKSI
+# PREPROCESS
 # =========================================
-def predict_image(image):
+def preprocess_image(image):
 
     size = (224, 224)
 
@@ -72,9 +74,7 @@ def predict_image(image):
 
     img = np.expand_dims(img, axis=0)
 
-    prediction = model.predict(img)
-
-    return prediction
+    return img.astype(np.float32)
 
 # =========================================
 # HASIL
@@ -85,7 +85,13 @@ if uploaded_file is not None:
 
     st.image(image, use_container_width=True)
 
-    prediction = predict_image(image)
+    img = preprocess_image(image)
+
+    infer = model.signatures["serving_default"]
+
+    prediction = infer(tf.constant(img))
+
+    prediction = list(prediction.values())[0].numpy()
 
     index = np.argmax(prediction)
 
