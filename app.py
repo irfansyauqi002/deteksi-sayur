@@ -1,8 +1,9 @@
 import streamlit as st
 import tensorflow as tf
-from tensorflow.keras.models import model_from_json
 from PIL import Image, ImageOps
 import numpy as np
+import zipfile
+import os
 
 # =========================================
 # CONFIG HALAMAN
@@ -14,7 +15,7 @@ st.set_page_config(
 )
 
 # =========================================
-# CUSTOM CSS UI MODERN
+# CUSTOM CSS
 # =========================================
 st.markdown("""
 <style>
@@ -34,52 +35,45 @@ st.markdown("""
 .subtitle {
     text-align: center;
     font-size: 18px;
-    color: #666666;
+    color: gray;
     margin-bottom: 30px;
 }
 
 .upload-box {
-    padding: 20px;
-    border-radius: 15px;
     background-color: white;
+    padding: 25px;
+    border-radius: 20px;
     box-shadow: 0px 4px 15px rgba(0,0,0,0.1);
 }
 
 .result-box {
-    padding: 25px;
-    border-radius: 15px;
     background: linear-gradient(135deg, #d4fc79, #96e6a1);
-    color: black;
-    margin-top: 20px;
+    padding: 25px;
+    border-radius: 20px;
     text-align: center;
+    margin-top: 20px;
     box-shadow: 0px 4px 15px rgba(0,0,0,0.1);
-}
-
-.result-title {
-    font-size: 20px;
-    font-weight: bold;
 }
 
 .result-label {
     font-size: 35px;
     font-weight: bold;
-    margin-top: 10px;
 }
 
 .result-confidence {
     font-size: 18px;
-    margin-top: 10px;
-}
-
-.stButton>button {
-    border-radius: 10px;
-    background-color: #2E8B57;
-    color: white;
-    font-weight: bold;
 }
 
 </style>
 """, unsafe_allow_html=True)
+
+# =========================================
+# EXTRACT MODEL ZIP
+# =========================================
+if not os.path.exists("saved_model"):
+
+    with zipfile.ZipFile("saved_model.zip", 'r') as zip_ref:
+        zip_ref.extractall("saved_model")
 
 # =========================================
 # LOAD MODEL
@@ -87,21 +81,14 @@ st.markdown("""
 @st.cache_resource
 def load_model():
 
-    # Load architecture
-    with open("model.json", "r") as json_file:
-        loaded_model_json = json_file.read()
-
-    model = model_from_json(loaded_model_json)
-
-    # Load weights
-    model.load_weights("model.weights.h5")
+    model = tf.saved_model.load("saved_model")
 
     return model
 
 model = load_model()
 
 # =========================================
-# LABEL KELAS
+# NAMA KELAS
 # =========================================
 class_names = ['Cabai', 'Terong', 'Tomat']
 
@@ -119,7 +106,7 @@ st.markdown(
 )
 
 # =========================================
-# UPLOAD FILE
+# UPLOAD BOX
 # =========================================
 st.markdown('<div class="upload-box">', unsafe_allow_html=True)
 
@@ -131,9 +118,9 @@ uploaded_file = st.file_uploader(
 st.markdown('</div>', unsafe_allow_html=True)
 
 # =========================================
-# FUNGSI PREDIKSI
+# PREPROCESS IMAGE
 # =========================================
-def predict_image(image):
+def preprocess_image(image):
 
     size = (224, 224)
 
@@ -149,9 +136,7 @@ def predict_image(image):
 
     img = np.expand_dims(img, axis=0)
 
-    prediction = model.predict(img)
-
-    return prediction
+    return img.astype(np.float32)
 
 # =========================================
 # HASIL PREDIKSI
@@ -166,7 +151,13 @@ if uploaded_file is not None:
         use_container_width=True
     )
 
-    prediction = predict_image(image)
+    img = preprocess_image(image)
+
+    infer = model.signatures["serving_default"]
+
+    prediction = infer(tf.constant(img))
+
+    prediction = list(prediction.values())[0].numpy()
 
     index = np.argmax(prediction)
 
@@ -174,16 +165,19 @@ if uploaded_file is not None:
 
     confidence = prediction[0][index] * 100
 
+    # =========================================
+    # TAMPILKAN HASIL
+    # =========================================
     st.markdown(f"""
     <div class="result-box">
 
-    <div class="result-title">
-    Hasil Prediksi
-    </div>
+    <h2>Hasil Prediksi</h2>
 
     <div class="result-label">
     {label}
     </div>
+
+    <br>
 
     <div class="result-confidence">
     Tingkat Keyakinan: {confidence:.2f}%
@@ -195,13 +189,13 @@ if uploaded_file is not None:
     # =========================================
     # DOWNLOAD HASIL
     # =========================================
-    hasil = f"""
-    HASIL KLASIFIKASI SAYURAN AI
+    hasil = f'''
+HASIL KLASIFIKASI SAYURAN AI
 
-    Hasil Prediksi : {label}
+Hasil Prediksi : {label}
 
-    Tingkat Keyakinan : {confidence:.2f}%
-    """
+Tingkat Keyakinan : {confidence:.2f}%
+'''
 
     st.download_button(
         label="📥 Download Hasil Prediksi",
