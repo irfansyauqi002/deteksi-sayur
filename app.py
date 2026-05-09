@@ -44,6 +44,7 @@ st.markdown("""
     padding: 25px;
     border-radius: 20px;
     box-shadow: 0px 4px 15px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
 }
 
 .result-box {
@@ -64,11 +65,19 @@ st.markdown("""
     font-size: 18px;
 }
 
+.history-box {
+    background-color: white;
+    padding: 20px;
+    border-radius: 15px;
+    margin-top: 20px;
+    box-shadow: 0px 4px 10px rgba(0,0,0,0.1);
+}
+
 </style>
 """, unsafe_allow_html=True)
 
 # =========================================
-# EXTRACT MODEL ZIP
+# EXTRACT MODEL
 # =========================================
 if not os.path.exists("saved_model"):
 
@@ -88,7 +97,7 @@ def load_model():
 model = load_model()
 
 # =========================================
-# NAMA KELAS
+# LABEL KELAS
 # =========================================
 class_names = ['Cabai', 'Terong', 'Tomat']
 
@@ -106,14 +115,42 @@ st.markdown(
 )
 
 # =========================================
-# UPLOAD BOX
+# SESSION HISTORY
 # =========================================
+if "history" not in st.session_state:
+    st.session_state.history = []
+
+# =========================================
+# PILIH INPUT
+# =========================================
+option = st.radio(
+    "Pilih Metode Input",
+    ["Upload Gambar", "Kamera Realtime"]
+)
+
+# =========================================
+# INPUT GAMBAR
+# =========================================
+image = None
+
 st.markdown('<div class="upload-box">', unsafe_allow_html=True)
 
-uploaded_file = st.file_uploader(
-    "📤 Upload gambar sayuran",
-    type=["jpg", "jpeg", "png"]
-)
+if option == "Upload Gambar":
+
+    uploaded_file = st.file_uploader(
+        "📤 Upload gambar",
+        type=["jpg", "jpeg", "png"]
+    )
+
+    if uploaded_file is not None:
+        image = Image.open(uploaded_file).convert("RGB")
+
+else:
+
+    camera_image = st.camera_input("📷 Ambil gambar")
+
+    if camera_image is not None:
+        image = Image.open(camera_image).convert("RGB")
 
 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -139,15 +176,13 @@ def preprocess_image(image):
     return img.astype(np.float32)
 
 # =========================================
-# HASIL PREDIKSI
+# PREDIKSI
 # =========================================
-if uploaded_file is not None:
-
-    image = Image.open(uploaded_file).convert("RGB")
+if image is not None:
 
     st.image(
         image,
-        caption="📷 Gambar Upload",
+        caption="📷 Gambar Input",
         use_container_width=True
     )
 
@@ -166,7 +201,7 @@ if uploaded_file is not None:
     confidence = prediction[0][index] * 100
 
     # =========================================
-    # TAMPILKAN HASIL
+    # HASIL
     # =========================================
     st.markdown(f"""
     <div class="result-box">
@@ -187,15 +222,35 @@ if uploaded_file is not None:
     """, unsafe_allow_html=True)
 
     # =========================================
+    # GRAFIK CONFIDENCE
+    # =========================================
+    st.subheader("📊 Confidence Semua Kelas")
+
+    for i, class_name in enumerate(class_names):
+
+        score = float(prediction[0][i]) * 100
+
+        st.write(f"{class_name} : {score:.2f}%")
+
+        st.progress(int(score))
+
+    # =========================================
+    # SIMPAN HISTORY
+    # =========================================
+    st.session_state.history.append(
+        f"{label} ({confidence:.2f}%)"
+    )
+
+    # =========================================
     # DOWNLOAD HASIL
     # =========================================
-    hasil = f'''
+    hasil = f"""
 HASIL KLASIFIKASI SAYURAN AI
 
 Hasil Prediksi : {label}
 
 Tingkat Keyakinan : {confidence:.2f}%
-'''
+"""
 
     st.download_button(
         label="📥 Download Hasil Prediksi",
@@ -204,5 +259,19 @@ Tingkat Keyakinan : {confidence:.2f}%
         mime="text/plain"
     )
 
+# =========================================
+# HISTORY
+# =========================================
+if len(st.session_state.history) > 0:
+
+    st.markdown("""
+    <div class="history-box">
+    <h3>📜 Riwayat Prediksi</h3>
+    </div>
+    """, unsafe_allow_html=True)
+
+    for item in reversed(st.session_state.history):
+        st.write("✅", item)
+
 else:
-    st.warning("⚠️ Silakan upload gambar terlebih dahulu.")
+    st.warning("⚠️ Silakan upload gambar atau gunakan kamera.")
