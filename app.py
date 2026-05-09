@@ -207,15 +207,29 @@ if image is not None:
 
     confidence = prediction[0][index] * 100
 
-    # =========================================
-    # THRESHOLD CONFIDENCE
-    # =========================================
-    THRESHOLD = 95
+   # =========================================
+# VALIDASI PREDIKSI
+# =========================================
 
-    if confidence < THRESHOLD:
-        label = "Tidak Dikenali"
-    else:
-        label = class_names[index]
+scores = prediction[0]
+
+max_score = np.max(scores) * 100
+
+sorted_scores = np.sort(scores)
+
+difference = (sorted_scores[-1] - sorted_scores[-2]) * 100
+
+# RULE:
+# kalau confidence rendah ATAU
+# selisih antar kelas kecil
+# maka tidak dikenali
+
+if max_score < 95 or difference < 20:
+    label = "Tidak Dikenali"
+else:
+    label = class_names[index]
+
+confidence = max_score
 
     # =========================================
     # HASIL PREDIKSI
