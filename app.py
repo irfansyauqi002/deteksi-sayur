@@ -6,7 +6,7 @@ import zipfile
 import os
 
 # =========================================
-# CONFIG HALAMAN
+# KONFIGURASI HALAMAN
 # =========================================
 st.set_page_config(
     page_title="Deteksi Sayuran AI",
@@ -48,7 +48,7 @@ st.markdown("""
 }
 
 .result-box {
-    background: linear-gradient(135deg, #d4fc79, #96e6a1);
+    background: linear-gradient(135deg, #56ab2f, #a8e063);
     padding: 25px;
     border-radius: 20px;
     text-align: center;
@@ -57,11 +57,12 @@ st.markdown("""
 }
 
 .unknown-box {
-    background: linear-gradient(135deg, #ffdde1, #ee9ca7);
+    background: linear-gradient(135deg, #ffb199, #ff0844);
     padding: 25px;
     border-radius: 20px;
     text-align: center;
     margin-top: 20px;
+    color: white;
     box-shadow: 0px 4px 15px rgba(0,0,0,0.1);
 }
 
@@ -106,20 +107,23 @@ def load_model():
 model = load_model()
 
 # =========================================
-# LABEL KELAS
+# NAMA KELAS
 # =========================================
-class_names = ["Cabai", "Terong", "Tomat"]
+class_names = [
+    "Non-Sayuran",
+    "Sayuran"
+]
 
 # =========================================
 # HEADER
 # =========================================
 st.markdown(
-    '<div class="title">🥬 Klasifikasi Sayuran AI</div>',
+    '<div class="title">🥬 Deteksi Sayuran AI</div>',
     unsafe_allow_html=True
 )
 
 st.markdown(
-    '<div class="subtitle">Deteksi Cabai, Terong, dan Tomat menggunakan Artificial Intelligence</div>',
+    '<div class="subtitle">Artificial Intelligence untuk mendeteksi Sayuran dan Non-Sayuran</div>',
     unsafe_allow_html=True
 )
 
@@ -127,6 +131,7 @@ st.markdown(
 # SESSION HISTORY
 # =========================================
 if "history" not in st.session_state:
+
     st.session_state.history = []
 
 # =========================================
@@ -152,6 +157,7 @@ if option == "Upload Gambar":
     )
 
     if uploaded_file is not None:
+
         image = Image.open(uploaded_file).convert("RGB")
 
 else:
@@ -159,12 +165,13 @@ else:
     camera_image = st.camera_input("📷 Ambil gambar")
 
     if camera_image is not None:
+
         image = Image.open(camera_image).convert("RGB")
 
 st.markdown('</div>', unsafe_allow_html=True)
 
 # =========================================
-# PREPROCESS IMAGE
+# PREPROCESS GAMBAR
 # =========================================
 def preprocess_image(image):
 
@@ -195,71 +202,40 @@ if image is not None:
         use_container_width=True
     )
 
-    # preprocess
     img = preprocess_image(image)
 
-    # inferensi model
     infer = model.signatures["serving_default"]
 
     prediction = infer(tf.constant(img))
 
     prediction = list(prediction.values())[0].numpy()
 
-    # =========================================
-    # AMBIL SCORE
-    # =========================================
-    scores = prediction[0]
-
-    index = np.argmax(scores)
-
-    max_score = np.max(scores) * 100
-
-    sorted_scores = np.sort(scores)
-
-    difference = (sorted_scores[-1] - sorted_scores[-2]) * 100
-
-    confidence = max_score
+    confidence = float(prediction[0][0])
 
     # =========================================
-    # VALIDASI PREDIKSI
+    # LABEL
     # =========================================
-    if max_score < 95 or difference < 20:
+    if confidence >= 0.5:
 
-        label = "Tidak Dikenali"
+        label = "Sayuran"
+
+        final_confidence = confidence * 100
 
     else:
 
-        label = class_names[index]
+        label = "Non-Sayuran"
+
+        final_confidence = (1 - confidence) * 100
 
     # =========================================
-    # HASIL PREDIKSI
+    # HASIL
     # =========================================
-    if label == "Tidak Dikenali":
-
-        st.markdown(f"""
-        <div class="unknown-box">
-
-        <h2>⚠️ Objek Tidak Dikenali</h2>
-
-        <div class="result-label">
-        {label}
-        </div>
-
-        <br>
-
-        <div class="result-confidence">
-        Confidence tertinggi hanya {confidence:.2f}%
-        </div>
-
-        </div>
-        """, unsafe_allow_html=True)
-
-    else:
+    if label == "Sayuran":
 
         st.markdown(f"""
         <div class="result-box">
 
-        <h2>Hasil Prediksi</h2>
+        <h2>✅ Hasil Prediksi</h2>
 
         <div class="result-label">
         {label}
@@ -268,41 +244,63 @@ if image is not None:
         <br>
 
         <div class="result-confidence">
-        Tingkat Keyakinan: {confidence:.2f}%
+        Tingkat Keyakinan: {final_confidence:.2f}%
+        </div>
+
+        </div>
+        """, unsafe_allow_html=True)
+
+    else:
+
+        st.markdown(f"""
+        <div class="unknown-box">
+
+        <h2>⚠️ Hasil Prediksi</h2>
+
+        <div class="result-label">
+        {label}
+        </div>
+
+        <br>
+
+        <div class="result-confidence">
+        Tingkat Keyakinan: {final_confidence:.2f}%
         </div>
 
         </div>
         """, unsafe_allow_html=True)
 
     # =========================================
-    # GRAFIK CONFIDENCE
+    # CONFIDENCE BAR
     # =========================================
-    st.subheader("📊 Confidence Semua Kelas")
+    st.subheader("📊 Confidence")
 
-    for i, class_name in enumerate(class_names):
+    sayuran_score = confidence * 100
 
-        score = float(scores[i]) * 100
+    non_score = (1 - confidence) * 100
 
-        st.write(f"{class_name} : {score:.2f}%")
+    st.write(f"🥬 Sayuran : {sayuran_score:.2f}%")
+    st.progress(int(sayuran_score))
 
-        st.progress(int(score))
+    st.write(f"❌ Non-Sayuran : {non_score:.2f}%")
+    st.progress(int(non_score))
 
     # =========================================
-    # SIMPAN HISTORY
+    # HISTORY
     # =========================================
     st.session_state.history.append(
-        f"{label} ({confidence:.2f}%)"
+        f"{label} ({final_confidence:.2f}%)"
     )
 
     # =========================================
     # DOWNLOAD HASIL
     # =========================================
     hasil = f"""
-HASIL KLASIFIKASI SAYURAN AI
+HASIL DETEKSI SAYURAN AI
 
 Hasil Prediksi : {label}
 
-Tingkat Keyakinan : {confidence:.2f}%
+Tingkat Keyakinan : {final_confidence:.2f}%
 """
 
     st.download_button(
@@ -313,7 +311,7 @@ Tingkat Keyakinan : {confidence:.2f}%
     )
 
 # =========================================
-# HISTORY
+# HISTORY PREDIKSI
 # =========================================
 if len(st.session_state.history) > 0:
 
